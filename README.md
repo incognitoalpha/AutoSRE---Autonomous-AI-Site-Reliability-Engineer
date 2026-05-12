@@ -15,16 +15,16 @@ AutoSRE is an autonomous, multi-agent AI platform that monitors distributed syst
 flowchart TD
     subgraph External["External Environment"]
         DS[Distributed Services]
-        K8s[Kubernetes Cluster]
+        K8S[Kubernetes Cluster]
     end
 
     subgraph Ingestion["Telemetry Ingestion"]
-        DS -- OTLP --> OTel[OTel Collector]
-        OTel -- Publish --> Kafka[(Kafka Cluster)]
+        OTel[OTel Collector]
+        Kafka[(Kafka Cluster)]
     end
 
     subgraph Core["AutoSRE Intelligence Loop"]
-        AD[Anomaly Detection Service]
+        AD[Anomaly Detection]
         AA[AI Agent Service]
         RS[Recommendation Service]
         AH[Auto-Healing Service]
@@ -36,6 +36,9 @@ flowchart TD
     end
 
     %% Data Flow
+    DS -- OTLP --> OTel
+    OTel -- Publish --> Kafka
+    
     Kafka -- "Metrics/Logs" --> AD
     AD -- "AnomalyAlert" --> Kafka
     Kafka -- "AnomalyAlert" --> AA
@@ -44,9 +47,9 @@ flowchart TD
     Kafka -- "RemediationAction" --> AH
 
     %% Action & Feedback
-    AH -- "Execute" --> K8s
-    K8s -- "Status/Events" --> AH
-    AH -- "HealingOutcomeEvent" --> Kafka
+    AH -- "Execute" --> K8S
+    K8S -- "Status/Events" --> AH
+    AH -- "Outcome" --> Kafka
     Kafka -- "Feedback" --> AD
 
     %% RAG & Context
@@ -55,25 +58,27 @@ flowchart TD
 
     subgraph Gateway["Interfaces"]
         API[API Gateway]
-        Dash[Grafana Dashboard]
+        UI[Grafana Dashboard]
     end
 
-    API <--> Core
-    Dash -- Query --> Prometheus[(Prometheus)]
-    Prometheus -- Scrape --> Core
+    API <--> AA
+    API <--> AD
+    UI --- Prom[(Prometheus)]
+    Prom -- Scrape --> AD
+    Prom -- Scrape --> AA
+    Prom -- Scrape --> RS
+    Prom -- Scrape --> AH
 ```
 
 ### Services Overview
-┌────────────────────────┬──────┬─────────────────────────────────────────────────┐
-│ Service                │ Port │ Responsibility                                  │
-├────────────────────────┼──────┼─────────────────────────────────────────────────┤
-│ anomaly-detection     │ 8081 │ Statistical + ML anomaly detection              │
-│ ai-agent              │ 8082 │ LLM-powered RCA + multi-agent orchestration     │
-│ recommendation        │ 8083 │ Confidence scoring + approval gate routing      │
-│ auto-healing          │ 8084 │ Kubernetes action execution + audit logging      │
-│ api-gateway           │ 8080 │ REST API + WebSocket + Swagger UI                │
-└────────────────────────┴──────┴─────────────────────────────────────────────────┘
-```
+
+| Service | Port | Responsibility |
+| :--- | :--- | :--- |
+| **anomaly-detection** | 8081 | Statistical + ML anomaly detection |
+| **ai-agent** | 8082 | LLM-powered RCA + multi-agent orchestration |
+| **recommendation** | 8083 | Confidence scoring + approval gate routing |
+| **auto-healing** | 8084 | Kubernetes action execution + audit logging |
+| **api-gateway** | 8080 | REST API + WebSocket + Swagger UI |
 
 ## Quick Start
 
