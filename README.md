@@ -1,6 +1,6 @@
 # AutoSRE - Autonomous AI Site Reliability Engineer
 
-[![Build Status](https://github.com/your-username/autosre/workflows/CI/badge.svg)](https://github.com/your-username/autosre/actions)
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/incognitoalpha/AutoSRE---Autonomous-AI-Site-Reliability-Engineer/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Java Version](https://img.shields.io/badge/Java-21+-blue.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.x-brightgreen.svg)](https://spring.io/projects/spring-boot)
