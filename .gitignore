@@ -1,0 +1,21 @@
+# Gradle
+build/
+.gradle/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+bin/
+out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Python (scripts)
+__pycache__/
+*.pyc

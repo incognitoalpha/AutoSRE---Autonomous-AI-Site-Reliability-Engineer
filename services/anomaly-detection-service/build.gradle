@@ -1,0 +1,22 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+bootJar {
+    archiveFileName = 'anomaly-detection-service.jar'
+}
+
+dependencies {
+    implementation project(':shared:autosre-common')
+    implementation 'org.springframework.boot:spring-boot-starter:3.3.5'
+    implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+    // ONNX Runtime - uncomment when model file is provided
+    // implementation 'com.microsoft.onnxruntime:onnxruntime:1.17.3'
+    implementation 'io.micrometer:micrometer-registry-prometheus:1.13.7'
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    testImplementation 'org.testcontainers:testcontainers:1.20.3'
+    testImplementation 'org.testcontainers:kafka:1.20.3'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test:3.3.5'
+    testImplementation 'org.springframework.kafka:spring-kafka-test:3.2.5'
+}

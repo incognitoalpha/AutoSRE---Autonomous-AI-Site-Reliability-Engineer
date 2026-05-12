@@ -1,0 +1,89 @@
+{{- /*
+Template for AI Agent Service Deployment
+*/ -}}
+{{- $svc := .Values.services.ai_agent -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autosre-ai-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: autosre
+    component: ai-agent
+    version: {{ .Chart.Version }}
+spec:
+  replicas: {{ $svc.replicaCount | default 2 }}
+  selector:
+    matchLabels:
+      app: autosre
+      component: ai-agent
+  template:
+    metadata:
+      labels:
+        app: autosre
+        component: ai-agent
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $svc.port }}"
+    spec:
+      containers:
+        - name: ai-agent
+          image: "{{ .Values.global.image.repository }}/ai-agent:{{ .Values.global.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $svc.port }}
+              name: http
+          env:
+            - name: AUTOSRE_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.config.autosre.kafka.bootstrap_servers }}
+            - name: AUTOSRE_DB_HOST
+              value: {{ .Values.config.autosre.db.host }}
+            - name: AUTOSRE_DB_PORT
+              value: {{ .Values.config.autosre.db.port | quote }}
+            - name: AUTOSRE_DB_NAME
+              value: {{ .Values.config.autosre.db.name }}
+            - name: AUTOSRE_DB_USER
+              value: {{ .Values.config.autosre.db.username }}
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: autosre-secrets
+                  key: anthropic-api-key
+          resources:
+            requests:
+              cpu: {{ $svc.resources.requests.cpu | default "100m" }}
+              memory: {{ $svc.resources.requests.memory | default "512Mi" }}
+            limits:
+              cpu: {{ $svc.resources.limits.cpu | default "1000m" }}
+              memory: {{ $svc.resources.limits.memory | default "1Gi" }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ $svc.port }}
+            initialDelaySeconds: {{ .Values.global.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ $svc.port }}
+            initialDelaySeconds: {{ .Values.global.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.readinessProbe.periodSeconds }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autosre-ai-agent
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: autosre
+    component: ai-agent
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: autosre
+    component: ai-agent

@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: anomaly-detection-service
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "com.autosre.anomaly.model"
+        spring.json.use.type.headers: false
+        spring.json.value.default.type: com.autosre.anomaly.model.TelemetryEvent
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+
+server:
+  port: ${SERVER_PORT:8081}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: ${spring.application.name}
+
+autosre:
+  kafka:
+    topics:
+      metrics: autosre.telemetry.metrics
+      logs: autosre.telemetry.logs
+      anomalies: autosre.alerts.anomalies
+    consumer-groups:
+      metrics-consumer: anomaly-metrics-consumer
+      logs-consumer: anomaly-logs-consumer
+    error-handler:
+      retries: 3
+      backoff-ms: 1000
+  detection:
+    zscore:
+      threshold: ${ZSCORE_THRESHOLD:3.0}
+      min-baseline-size: ${ZSCORE_MIN_BASELINE:30}
+    mad:
+      threshold: ${MAD_THRESHOLD:3.5}
+      sensitivity: ${MAD_SENSITIVITY:1.4826}
+      min-baseline-size: ${MAD_MIN_BASELINE:30}
+
+logging:
+  level:
+    root: INFO
+    com.autosre: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

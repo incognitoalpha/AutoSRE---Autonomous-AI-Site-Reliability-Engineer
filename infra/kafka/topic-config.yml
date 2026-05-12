@@ -1,0 +1,39 @@
+---
+# Kafka Topic Configuration for AutoSRE
+# Topics are created with replication=1 and partitions=3 for local development
+
+topics:
+  - name: autosre.telemetry.logs
+    config:
+      replication.factor: 1
+      partitions: 3
+      retention.ms: 604800000  # 7 days
+      cleanup.policy: delete
+
+  - name: autosre.telemetry.metrics
+    config:
+      replication.factor: 1
+      partitions: 3
+      retention.ms: 604800000
+      cleanup.policy: delete
+
+  - name: autosre.telemetry.traces
+    config:
+      replication.factor: 1
+      partitions: 3
+      retention.ms: 604800000
+      cleanup.policy: delete
+
+  - name: autosre.alerts.anomalies
+    config:
+      replication.factor: 1
+      partitions: 3
+      retention.ms: 2592000000  # 30 days
+      cleanup.policy: delete
+
+  - name: autosre.actions.remediation
+    config:
+      replication.factor: 1
+      partitions: 3
+      retention.ms: 2592000000
+      cleanup.policy: delete

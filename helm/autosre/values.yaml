@@ -1,0 +1,119 @@
+global:
+  image:
+    repository: autosre
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  livenessProbe:
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 3
+
+  readinessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    failureThreshold: 3
+
+config:
+  autosre:
+    kafka:
+      bootstrap-servers: "PLAINTEXT://autosre-kafka:9092"
+    db:
+      host: "autosre-postgres"
+      port: 5432
+      name: "autosre"
+      username: "postgres"
+      # password should be set via secret
+    redis:
+      host: "autosre-redis"
+      port: 6379
+    k8s:
+      in-cluster: "true"
+      namespace: "{{ .Release.Namespace }}"
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: autosre.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: autosre-tls
+      hosts:
+        - autosre.local
+
+persistence:
+  enabled: true
+  storageClass: standard
+  accessMode: ReadWriteOnce
+  size: 10Gi
+
+prometheus:
+  enabled: true
+  port: 9090
+
+services:
+  anomaly-detection:
+    enabled: true
+    replicaCount: 2
+    port: 8081
+    metrics:
+      enabled: true
+    env:
+      AUTOSRE_KAFKA_BOOTSTRAP_SERVERS: "{{ .Values.config.autosre.kafka.bootstrap-servers }}"
+      AUTOSRE_KAFKA_CONSUMER_GROUPS_ANOMALY_SERVICE: "anomaly-consumer-group"
+
+  ai-agent:
+    enabled: true
+    replicaCount: 2
+    port: 8082
+    metrics:
+      enabled: true
+    env:
+      ANTHROPIC_API_KEY: ""  # Set via secret
+      AUTOSRE_DB_HOST: "{{ .Values.config.autosre.db.host }}"
+      AUTOSRE_DB_PORT: "{{ .Values.config.autosre.db.port }}"
+      AUTOSRE_DB_NAME: "{{ .Values.config.autosre.db.name }}"
+      AUTOSRE_DB_USER: "{{ .Values.config.autosre.db.username }}"
+      LANGCHAIN_MODE: "pgvector"
+
+  recommendation:
+    enabled: true
+    replicaCount: 2
+    port: 8083
+    metrics:
+      enabled: true
+    env:
+      AUTOSRE_REDIS_HOST: "{{ .Values.config.autosre.redis.host }}"
+      AUTOSRE_REDIS_PORT: "{{ .Values.config.autosre.redis.port }}"
+
+  auto-healing:
+    enabled: true
+    replicaCount: 2
+    port: 8084
+    metrics:
+      enabled: true
+    env:
+      AUTOSRE_K8S_IN_CLUSTER: "{{ .Values.config.autosre.k8s.in-cluster }}"
+      AUTOSRE_K8S_NAMESPACE: "{{ .Values.config.autosre.k8s.namespace }}"
+
+  api-gateway:
+    enabled: true
+    replicaCount: 2
+    port: 8080
+    metrics:
+      enabled: true
+    env:
+      SPRING_PROFILES_ACTIVE: "production"

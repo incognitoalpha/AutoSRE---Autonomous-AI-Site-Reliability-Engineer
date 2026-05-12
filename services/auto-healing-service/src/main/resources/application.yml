@@ -1,0 +1,61 @@
+server:
+  port: 8083
+
+spring:
+  application:
+    name: auto-healing-service
+
+  datasource:
+    url: jdbc:postgresql://${AUTOSRE_DB_HOST:localhost}:${AUTOSRE_DB_PORT:5432}/${AUTOSRE_DB_NAME:autosre}
+    username: ${AUTOSRE_DB_USER:postgres}
+    password: ${AUTOSRE_DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+autosre:
+  kafka:
+    bootstrap-servers: ${AUTOSRE_KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    topics:
+      remediation: autosre.actions.remediation
+      feedback: autosre.telemetry.metrics
+    consumer-groups:
+      healing-service: auto-healing-consumer-group
+
+  kubernetes:
+    in-cluster: ${AUTOSRE_K8S_IN_CLUSTER:true}
+    master-url: ${AUTOSRE_K8S_MASTER_URL:}
+    namespace: ${AUTOSRE_K8S_NAMESPACE:default}
+    ca-cert-path: ${AUTOSRE_K8S_CA_CERT_PATH:}
+    token: ${AUTOSRE_K8S_TOKEN:}
+    scale:
+      max-factor: ${AUTOSRE_K8S_SCALE_MAX_FACTOR:3.0}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus,metrics
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+
+logging:
+  level:
+    com.autosre: DEBUG
+    io.fabric8.kubernetes: INFO

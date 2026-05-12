@@ -1,0 +1,129 @@
+{{- /*
+Template for Auto-Healing Service Deployment
+*/ -}}
+{{- $svc := .Values.services.auto_healing -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: autosre-auto-healing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: autosre
+    component: auto-healing
+    version: {{ .Chart.Version }}
+spec:
+  replicas: {{ $svc.replicaCount | default 2 }}
+  selector:
+    matchLabels:
+      app: autosre
+      component: auto-healing
+  template:
+    metadata:
+      labels:
+        app: autosre
+        component: auto-healing
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "{{ $svc.port }}"
+    spec:
+      serviceAccountName: autosre-healing-sa
+      containers:
+        - name: auto-healing
+          image: "{{ .Values.global.image.repository }}/auto-healing:{{ .Values.global.image.tag }}"
+          imagePullPolicy: {{ .Values.global.image.pullPolicy }}
+          ports:
+            - containerPort: {{ $svc.port }}
+              name: http
+          env:
+            - name: AUTOSRE_KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.config.autosre.kafka.bootstrap_servers }}
+            - name: AUTOSRE_DB_HOST
+              value: {{ .Values.config.autosre.db.host }}
+            - name: AUTOSRE_DB_PORT
+              value: {{ .Values.config.autosre.db.port | quote }}
+            - name: AUTOSRE_DB_NAME
+              value: {{ .Values.config.autosre.db.name }}
+            - name: AUTOSRE_DB_USER
+              value: {{ .Values.config.autosre.db.username }}
+            - name: AUTOSRE_K8S_IN_CLUSTER
+              value: {{ .Values.config.autosre.k8s.in_cluster }}
+            - name: AUTOSRE_K8S_NAMESPACE
+              value: {{ .Values.config.autosre.k8s.namespace }}
+          resources:
+            requests:
+              cpu: {{ $svc.resources.requests.cpu | default "100m" }}
+              memory: {{ $svc.resources.requests.memory | default "256Mi" }}
+            limits:
+              cpu: {{ $svc.resources.limits.cpu | default "500m" }}
+              memory: {{ $svc.resources.limits.memory | default "512Mi" }}
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ $svc.port }}
+            initialDelaySeconds: {{ .Values.global.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: {{ $svc.port }}
+            initialDelaySeconds: {{ .Values.global.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.global.readinessProbe.periodSeconds }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: autosre-auto-healing
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: autosre
+    component: auto-healing
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ $svc.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: autosre
+    component: auto-healing
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: autosre-healing-sa
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: autosre-healing-role
+  namespace: {{ .Release.Namespace }}
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch", "scale"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "delete", "list"]
+rules:
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "patch", "scale", "rollback"]
+  - apiGroups: [""]
+    resources: ["pods", "events"]
+    verbs: ["get", "delete", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: autosre-healing-rb
+  namespace: {{ .Release.Namespace }}
+subjects:
+  - kind: ServiceAccount
+    name: autosre-healing-sa
+    namespace: {{ .Release.Namespace }}
+roleRef:
+  kind: Role
+  name: autosre-healing-role
+  apiGroup: rbac.authorization.k8s.io

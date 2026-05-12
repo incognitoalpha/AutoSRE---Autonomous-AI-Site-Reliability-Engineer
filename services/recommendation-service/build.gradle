@@ -1,0 +1,30 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+bootJar {
+    archiveFileName = 'recommendation-service.jar'
+}
+
+ext {
+    set('springBootVersion', '3.3.5')
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation project(':shared:autosre-common')
+    implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-web:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-data-redis:${springBootVersion}"
+    implementation "org.springframework.boot:spring-boot-starter-data-jpa:${springBootVersion}"
+    implementation 'org.postgresql:postgresql:42.7.4'
+    implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    testImplementation 'org.testcontainers:testcontainers:1.20.3'
+    testImplementation 'org.testcontainers:postgresql:1.20.3'
+    testImplementation 'org.mockito:mockito-core:5.14.2'
+    testImplementation "org.springframework.boot:spring-boot-starter-test:${springBootVersion}"
+}

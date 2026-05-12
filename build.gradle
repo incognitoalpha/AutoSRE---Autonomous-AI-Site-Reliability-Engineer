@@ -1,0 +1,163 @@
+buildscript {
+    ext {
+        set('springBootVersion', '3.3.5')
+        set('langchain4jVersion', '0.32.0')
+        set('onnxRuntimeVersion', '1.18.0')
+        set('fabric8Version', '6.13.3')
+        set('testcontainersVersion', '1.20.3')
+    }
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
+    }
+}
+
+plugins {
+    id 'base'
+    id 'java'
+    id 'checkstyle'
+    id 'jacoco'
+}
+
+allprojects {
+    group = 'com.autosre'
+    version = '0.1.0'
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'checkstyle'
+    apply plugin: 'jacoco'
+
+    java {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs.add('-parameters')
+    }
+
+    checkstyle {
+        toolVersion = '10.20.1'
+        configFile = rootProject.file('config/checkstyle/google_checks.xml')
+    }
+
+    jacoco {
+        toolVersion = '0.8.12'
+    }
+
+    jacocoTestReport {
+        dependsOn test
+        reports {
+            xml.required = true
+            html.required = true
+        }
+    }
+
+    test {
+        useJUnitPlatform()
+    }
+}
+
+project(':shared:autosre-common') {
+    apply plugin: 'java-library'
+
+    dependencies {
+        api 'org.slf4j:slf4j-api:2.0.16'
+        compileOnly 'com.fasterxml.jackson.core:jackson-databind:2.18.3'
+    }
+}
+
+project(':services:anomaly-detection-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':shared:autosre-common')
+        implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
+        implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+        implementation "com.microsoft.onnxruntime:onnxruntime:${onnxRuntimeVersion}"
+        implementation 'io.micrometer:micrometer-registry-prometheus:1.13.7'
+        implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+        testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+        testImplementation 'org.testcontainers:kafka'
+        testImplementation 'org.mockito:mockito-core:5.14.2'
+    }
+}
+
+project(':services:ai-agent-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':shared:autosre-common')
+        implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+        implementation "dev.langchain4j:langchain4j:${langchain4jVersion}"
+        implementation 'dev.langchain4j:langchain4j-anthropic'
+        implementation 'dev.langchain4j:langchain4j-pgvector'
+        implementation 'org.flywaydb:flyway-core:10.19.0'
+        implementation 'org.postgresql:postgresql:42.7.4'
+        implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+        testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+        testImplementation 'org.testcontainers:postgresql'
+        testImplementation 'org.testcontainers:junit-jupiter'
+        testImplementation 'org.mockito:mockito-core:5.14.2'
+        testImplementation 'com.github.tomakehurst:wiremock:3.0.1'
+    }
+}
+
+project(':services:recommendation-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':shared:autosre-common')
+        implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
+        implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+        implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.postgresql:postgresql:42.7.4'
+        testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+        testImplementation 'org.testcontainers:postgresql'
+        testImplementation 'org.mockito:mockito-core:5.14.2'
+    }
+}
+
+project(':services:auto-healing-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':shared:autosre-common')
+        implementation "org.springframework.boot:spring-boot-starter:${springBootVersion}"
+        implementation "io.fabric8:kubernetes-client:${fabric8Version}"
+        implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.postgresql:postgresql:42.7.4'
+        implementation 'io.micrometer:micrometer-registry-prometheus:1.13.7'
+        testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+        testImplementation 'org.mockito:mockito-core:5.14.2'
+    }
+}
+
+project(':services:api-gateway-service') {
+    apply plugin: 'org.springframework.boot'
+
+    dependencies {
+        implementation project(':shared:autosre-common')
+        implementation "org.springframework.boot:spring-boot-starter-webflux:${springBootVersion}"
+        implementation "org.springframework.boot:spring-boot-starter-web:${springBootVersion}"
+        implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+        implementation 'org.postgresql:postgresql:42.7.4'
+        implementation 'org.springframework.kafka:spring-kafka:3.2.5'
+        implementation 'org.springdoc:springdoc-openapi-starter-webflux-ui:2.6.0'
+        testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
+        testImplementation 'org.mockito:mockito-core:5.14.2'
+    }
+}

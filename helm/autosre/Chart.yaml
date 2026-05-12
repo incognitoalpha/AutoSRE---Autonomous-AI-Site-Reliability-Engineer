@@ -1,0 +1,15 @@
+apiVersion: v2
+name: autosre
+description: AutoSRE - Autonomous AI Site Reliability Engineer
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - sre
+  - autonomous
+  - kubernetes
+  - ai
+  - remediation
+maintainers:
+  - name: AutoSRE Team
+    email: autosre@example.com

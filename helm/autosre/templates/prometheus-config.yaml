@@ -1,0 +1,70 @@
+# Prometheus scrape configuration for AutoSRE services
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Anomaly Detection Service
+  - job_name: 'autosre-anomaly-detection'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['autosre-anomaly-detection:8081']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'anomaly-detection'
+
+  # AI Agent Service
+  - job_name: 'autosre-ai-agent'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['autosre-ai-agent:8082']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'ai-agent'
+
+  # Recommendation Service
+  - job_name: 'autosre-recommendation'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['autosre-recommendation:8083']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'recommendation'
+
+  # Auto-Healing Service
+  - job_name: 'autosre-auto-healing'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['autosre-auto-healing:8084']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'auto-healing'
+
+  # API Gateway Service
+  - job_name: 'autosre-api-gateway'
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ['autosre-api-gateway:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'api-gateway'
+
+  # Kafka metrics (JMX Exporter sidecar required)
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['autosre-kafka:9308']
+
+  # PostgreSQL metrics (postgres_exporter required)
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['autosre-postgres-exporter:9187']

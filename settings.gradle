@@ -1,0 +1,8 @@
+rootProject.name = 'autosre'
+
+include 'shared:autosre-common'
+include 'services:anomaly-detection-service'
+include 'services:ai-agent-service'
+include 'services:recommendation-service'
+include 'services:auto-healing-service'
+include 'services:api-gateway-service'

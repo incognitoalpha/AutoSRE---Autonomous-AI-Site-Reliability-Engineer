@@ -1,0 +1,50 @@
+spring:
+  application:
+    name: recommendation-service
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:localhost}:${POSTGRES_PORT:5432}/autosre
+    username: ${POSTGRES_USER:autosre}
+    password: ${POSTGRES_PASSWORD:autosre}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+
+server:
+  port: ${SERVER_PORT:8083}
+
+autosre:
+  kafka:
+    topics:
+      anomalies: ${KAFKA_TOPIC_ANOMALIES:autosre.alerts.anomalies}
+      remediation: ${KAFKA_TOPIC_REMEDIATION:autosre.actions.remediation}
+    consumer-groups:
+      recommendation-service: ${KAFKA_GROUP_RECOMMENDATION:recommendation-service-group}
+
+logging:
+  level:
+    com.autosre: DEBUG
+    org.springframework.kafka: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
