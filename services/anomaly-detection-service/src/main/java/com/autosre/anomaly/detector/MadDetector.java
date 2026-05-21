@@ -196,6 +196,7 @@ public class MadDetector implements AnomalyDetector {
         for (Double value : sortedValues) {
             deviations.add(Math.abs(value - median));
         }
+        java.util.Collections.sort(deviations);
         return calculateMedian(deviations) * sensitivity;
     }
 

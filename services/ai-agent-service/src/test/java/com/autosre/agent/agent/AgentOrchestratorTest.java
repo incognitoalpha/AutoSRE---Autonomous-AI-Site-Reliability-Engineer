@@ -8,11 +8,16 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @DisplayName("AgentOrchestrator")
 class AgentOrchestratorTest {
@@ -180,6 +185,61 @@ class AgentOrchestratorTest {
 
             // May return empty or some fallback plans
             assertTrue(true, "Orchestrator should handle unknown anomalies");
+        }
+
+        @Test
+        @DisplayName("handles agent execution exception gracefully")
+        void handlesAgentExecutionException() {
+            SpecialistAgent failingAgent = mock(SpecialistAgent.class);
+            when(failingAgent.isApplicable(anyString(), anyString())).thenReturn(true);
+            when(failingAgent.getAgentName()).thenReturn("FailingAgent");
+            when(failingAgent.analyze(anyString(), anyString(), any(), anyString(), anyString()))
+                    .thenThrow(new RuntimeException("Agent failed execution"));
+
+            AgentOrchestrator failingOrchestrator = new AgentOrchestrator(List.of(failingAgent));
+
+            List<RemediationPlan> plans = failingOrchestrator.orchestrate(
+                    "alert-error",
+                    "service",
+                    Severity.HIGH,
+                    "Exception test",
+                    "Exception description",
+                    "Exception root cause"
+            );
+
+            assertTrue(plans.isEmpty(), "Should return empty list when agent fails");
+        }
+
+        @Test
+        @DisplayName("handles agent timeout or get exception gracefully")
+        void handlesAgentTimeoutException() {
+            SpecialistAgent timeoutAgent = mock(SpecialistAgent.class);
+            when(timeoutAgent.isApplicable(anyString(), anyString())).thenReturn(true);
+            when(timeoutAgent.getAgentName()).thenReturn("TimeoutAgent");
+            when(timeoutAgent.analyze(anyString(), anyString(), any(), anyString(), anyString()))
+                    .thenAnswer(invocation -> {
+                        // Return null to avoid constructor issues
+                        return null;
+                    });
+
+            AgentOrchestrator timeoutOrchestrator = new AgentOrchestrator(List.of(timeoutAgent));
+
+            // Force InterruptedException in future.get()
+            Thread.currentThread().interrupt();
+
+            List<RemediationPlan> plans = timeoutOrchestrator.orchestrate(
+                    "alert-timeout",
+                    "service",
+                    Severity.HIGH,
+                    "Timeout test",
+                    "Timeout description",
+                    "Timeout root cause"
+            );
+            
+            // Clear interrupt flag so other tests aren't affected
+            Thread.interrupted();
+
+            assertTrue(plans.isEmpty(), "Should return empty list when agent gets interrupted/timeout");
         }
     }
 }

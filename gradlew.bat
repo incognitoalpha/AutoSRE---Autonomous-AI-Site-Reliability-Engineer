@@ -9,7 +9,7 @@ set APP_HOME=%DIRNAME%
 
 set DEFAULT_JVM_OPTS=-Xmx64m -Xms64m
 
-find /Q "java" >nul 2>&1
+where java >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Java is not installed or not in PATH
     echo Please install Java 21 and set JAVA_HOME

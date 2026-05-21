@@ -19,8 +19,6 @@ import com.autosre.anomaly.model.TelemetryEvent;
 
 /**
  * Unit tests for ZScoreDetector.
- *
- * <p>Bounded context: {@code anomaly-detection-service}</p>
  */
 class ZScoreDetectorTest {
 
@@ -42,42 +40,27 @@ class ZScoreDetectorTest {
     @Test
     @DisplayName("Should detect anomaly when value exceeds threshold")
     void detectAnomalyAboveThresholdReturnsAlert() {
-        TelemetryEvent event = new TelemetryEvent(
-            UUID.randomUUID(),
-            "test-service",
-            "http_request_latency_ms",
-            1000.0,
-            Instant.now(),
-            java.util.Map.of(),
-            null,
-            null
-        );
-
+        TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 1000.0);
         Optional<AnomalyAlert> result = detector.detect(event, baseline);
-
         assertTrue(result.isPresent());
-        AnomalyAlert alert = result.get();
-        assertEquals("test-service", alert.serviceId());
-        assertEquals("ZSCORE", alert.detectorType());
+        assertEquals("test-service", result.get().serviceId());
+        assertEquals("ZSCORE", result.get().detectorType());
     }
 
     @Test
     @DisplayName("Should return empty when value is within threshold")
     void detectNormalValueReturnsEmpty() {
         double mean = baseline.stream().mapToDouble(Double::doubleValue).average().orElse(100);
-        TelemetryEvent event = new TelemetryEvent(
-            UUID.randomUUID(),
-            "test-service",
-            "http_request_latency_ms",
-            mean,
-            Instant.now(),
-            java.util.Map.of(),
-            null,
-            null
-        );
-
+        TelemetryEvent event = TelemetryEvent.of("test-service", "latency", mean);
         Optional<AnomalyAlert> result = detector.detect(event, baseline);
+        assertTrue(result.isEmpty());
+    }
 
+    @Test
+    @DisplayName("Should return empty when baseline is null")
+    void detectNullBaselineReturnsEmpty() {
+        TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 500.0);
+        Optional<AnomalyAlert> result = detector.detect(event, null);
         assertTrue(result.isEmpty());
     }
 
@@ -88,11 +71,8 @@ class ZScoreDetectorTest {
         for (int i = 0; i < 10; i++) {
             smallBaseline.add(100.0);
         }
-
         TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 500.0);
-
         Optional<AnomalyAlert> result = detector.detect(event, smallBaseline);
-
         assertTrue(result.isEmpty());
     }
 
@@ -123,21 +103,16 @@ class ZScoreDetectorTest {
     }
 
     @Test
-    @DisplayName("Should detect anomaly for high z-score")
-    void detectHighZScoreReturnsAnomaly() {
-        TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 1000.0);
-
-        Optional<AnomalyAlert> result = detector.detect(event, baseline);
-
-        assertTrue(result.isPresent());
+    @DisplayName("Should reject invalid threshold value")
+    void setThresholdInvalidValueThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> detector.setThreshold(0.0));
+        assertThrows(IllegalArgumentException.class, () -> detector.setThreshold(-1.0));
     }
 
     @Test
-    @DisplayName("Should reject invalid threshold value")
-    void setThresholdInvalidValueThrowsException() {
-        assertThrows(IllegalArgumentException.class, () -> {
-            detector.setThreshold(-1.0);
-        });
+    @DisplayName("Should reject invalid min baseline size")
+    void setMinBaselineSizeInvalidValueThrowsException() {
+        assertThrows(IllegalArgumentException.class, () -> detector.setMinBaselineSize(1));
     }
 
     @Test
@@ -147,14 +122,22 @@ class ZScoreDetectorTest {
         for (int i = 0; i < 30; i++) {
             constantBaseline.add(100.0);
         }
-
         TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 500.0);
-
         Optional<AnomalyAlert> result = detector.detect(event, constantBaseline);
-
         assertTrue(result.isPresent());
-        assertEquals("test-service", result.get().serviceId());
         assertEquals("ZSCORE", result.get().detectorType());
+    }
+
+    @Test
+    @DisplayName("Should detect anomaly for constant zero baseline with positive deviating value")
+    void detectConstantZeroBaselineWithPositiveDeviatingValueReturnsAlert() {
+        List<Double> constantBaseline = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            constantBaseline.add(0.0);
+        }
+        TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 10.0);
+        Optional<AnomalyAlert> result = detector.detect(event, constantBaseline);
+        assertTrue(result.isPresent());
     }
 
     @Test
@@ -164,11 +147,8 @@ class ZScoreDetectorTest {
         for (int i = 0; i < 30; i++) {
             constantBaseline.add(100.0);
         }
-
         TelemetryEvent event = TelemetryEvent.of("test-service", "latency", 100.0);
-
         Optional<AnomalyAlert> result = detector.detect(event, constantBaseline);
-
         assertTrue(result.isEmpty());
     }
 }

@@ -5,11 +5,11 @@ import com.autosre.recommendation.model.RemediationRecommendation;
 import com.autosre.recommendation.producer.RemediationProducer;
 import com.autosre.recommendation.repository.PendingApprovalRepository;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -19,12 +19,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@DisplayName("SyncApprovalGate")
 class SyncApprovalGateTest {
 
     @Mock
@@ -33,158 +33,131 @@ class SyncApprovalGateTest {
     @Mock
     private RemediationProducer producer;
 
+    @InjectMocks
     private SyncApprovalGate gate;
+
+    private ApprovalGate.RemediationPlanWrapper plan;
 
     @BeforeEach
     void setUp() {
-        gate = new SyncApprovalGate(repository, producer);
-    }
-
-    @Nested
-    @DisplayName("supports")
-    class Supports {
-
-        @Test
-        @DisplayName("returns true for HIGH risk")
-        void returnsTrueForHighRisk() {
-            assertTrue(gate.supports(RemediationRecommendation.RiskLevel.HIGH));
-        }
-
-        @Test
-        @DisplayName("returns false for LOW risk")
-        void returnsFalseForLowRisk() {
-            assertFalse(gate.supports(RemediationRecommendation.RiskLevel.LOW));
-        }
-
-        @Test
-        @DisplayName("returns false for MEDIUM risk")
-        void returnsFalseForMediumRisk() {
-            assertFalse(gate.supports(RemediationRecommendation.RiskLevel.MEDIUM));
-        }
-    }
-
-    @Nested
-    @DisplayName("process")
-    class Process {
-
-        @Test
-        @DisplayName("saves plan to repository and returns PENDING")
-        void savesAndReturnsPending() {
-            var plan = createPlan();
-
-            var decision = gate.process(plan);
-
-            assertEquals(ApprovalGate.ApprovalDecision.PENDING, decision);
-            verify(repository).save(any(PendingApproval.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("approve")
-    class Approve {
-
-        @Test
-        @DisplayName("approves and publishes pending plan")
-        void approvesAndPublishes() {
-            UUID planId = UUID.randomUUID();
-            PendingApproval approval = createPendingApproval(planId);
-            when(repository.findByPlanId(planId)).thenReturn(Optional.of(approval));
-
-            boolean result = gate.approve(planId, "oncall-engineer");
-
-            assertTrue(result);
-            verify(repository).save(approval);
-            verify(producer).publishApproved(any());
-        }
-
-        @Test
-        @DisplayName("returns false when plan not found")
-        void returnsFalseWhenNotFound() {
-            UUID planId = UUID.randomUUID();
-            when(repository.findByPlanId(planId)).thenReturn(Optional.empty());
-
-            boolean result = gate.approve(planId, "oncall-engineer");
-
-            assertFalse(result);
-            verify(producer, never()).publishApproved(any());
-        }
-
-        @Test
-        @DisplayName("returns false when plan expired")
-        void returnsFalseWhenExpired() {
-            UUID planId = UUID.randomUUID();
-            PendingApproval approval = createExpiredApproval(planId);
-            when(repository.findByPlanId(planId)).thenReturn(Optional.of(approval));
-
-            boolean result = gate.approve(planId, "oncall-engineer");
-
-            assertFalse(result);
-        }
-    }
-
-    @Nested
-    @DisplayName("reject")
-    class Reject {
-
-        @Test
-        @DisplayName("rejects pending plan")
-        void rejectsPendingPlan() {
-            UUID planId = UUID.randomUUID();
-            PendingApproval approval = createPendingApproval(planId);
-            when(repository.findByPlanId(planId)).thenReturn(Optional.of(approval));
-
-            boolean result = gate.reject(planId, "oncall-engineer", "Not safe");
-
-            assertTrue(result);
-            verify(repository).save(approval);
-        }
-    }
-
-    private ApprovalGate.RemediationPlanWrapper createPlan() {
-        return new ApprovalGate.RemediationPlanWrapper(
+        plan = new ApprovalGate.RemediationPlanWrapper(
                 UUID.randomUUID(),
-                "SecurityAgent",
-                "alert-456",
-                "auth-service",
+                "agent-1",
+                "alert-1",
+                "service-1",
                 "[]",
                 RemediationRecommendation.RiskLevel.HIGH,
-                0.75,
-                null
-        );
-    }
-
-    private PendingApproval createPendingApproval(UUID planId) {
-        return PendingApproval.create(
-                planId,
-                "SecurityAgent",
-                "alert-456",
-                "auth-service",
-                "[]",
-                RemediationRecommendation.RiskLevel.HIGH,
-                0.75,
+                0.50,
                 RemediationRecommendation.ApprovalTier.SYNC
         );
     }
 
-    private PendingApproval createExpiredApproval(UUID planId) {
+    @Test
+    void testSupports() {
+        assertTrue(gate.supports(RemediationRecommendation.RiskLevel.HIGH));
+        assertFalse(gate.supports(RemediationRecommendation.RiskLevel.MEDIUM));
+        assertFalse(gate.supports(RemediationRecommendation.RiskLevel.LOW));
+    }
+
+    @Test
+    void testProcess_Success() {
+        ApprovalGate.ApprovalDecision decision = gate.process(plan);
+
+        assertEquals(ApprovalGate.ApprovalDecision.PENDING, decision);
+        verify(repository).save(any(PendingApproval.class));
+    }
+
+    @Test
+    void testProcess_Exception() {
+        doThrow(new RuntimeException("DB error")).when(repository).save(any(PendingApproval.class));
+
+        ApprovalGate.ApprovalDecision decision = gate.process(plan);
+
+        assertEquals(ApprovalGate.ApprovalDecision.REJECTED, decision);
+    }
+
+    @Test
+    void testApprove_Success() {
         PendingApproval approval = PendingApproval.create(
-                planId,
-                "SecurityAgent",
-                "alert-456",
-                "auth-service",
-                "[]",
-                RemediationRecommendation.RiskLevel.HIGH,
-                0.75,
-                RemediationRecommendation.ApprovalTier.SYNC
+                plan.planId(), plan.agentId(), plan.alertId(), plan.serviceId(), plan.actionsJson(),
+                plan.riskLevel(), plan.confidenceScore(), plan.tier()
         );
-        // Use reflection to set expiresAt to the past
-        try {
-            java.lang.reflect.Field field = PendingApproval.class.getDeclaredField("expiresAt");
-            field.setAccessible(true);
-            field.set(approval, java.time.Instant.now().minusSeconds(60));
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return approval;
+
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.of(approval));
+
+        boolean result = gate.approve(plan.planId(), "user-1");
+
+        assertTrue(result);
+        verify(repository).save(approval);
+        verify(producer).publishApproved(any(ApprovalGate.RemediationPlanWrapper.class));
+    }
+
+    @Test
+    void testApprove_NotFound() {
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.empty());
+
+        boolean result = gate.approve(plan.planId(), "user-1");
+
+        assertFalse(result);
+        verify(repository, never()).save(any());
+    }
+
+    @Test
+    void testApprove_Expired() {
+        PendingApproval approval = Mockito.spy(PendingApproval.create(
+                plan.planId(), plan.agentId(), plan.alertId(), plan.serviceId(), plan.actionsJson(),
+                plan.riskLevel(), plan.confidenceScore(), plan.tier()
+        ));
+        Mockito.when(approval.isExpired()).thenReturn(true);
+
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.of(approval));
+
+        boolean result = gate.approve(plan.planId(), "user-1");
+
+        assertFalse(result);
+        verify(repository, never()).save(any());
+        verify(producer, never()).publishApproved(any());
+    }
+
+    @Test
+    void testApprove_PublishException() {
+        PendingApproval approval = PendingApproval.create(
+                plan.planId(), plan.agentId(), plan.alertId(), plan.serviceId(), plan.actionsJson(),
+                plan.riskLevel(), plan.confidenceScore(), plan.tier()
+        );
+
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.of(approval));
+        doThrow(new RuntimeException("Kafka error")).when(producer).publishApproved(any());
+
+        boolean result = gate.approve(plan.planId(), "user-1");
+
+        assertFalse(result);
+        verify(repository).save(approval);
+    }
+
+    @Test
+    void testReject_Success() {
+        PendingApproval approval = PendingApproval.create(
+                plan.planId(), plan.agentId(), plan.alertId(), plan.serviceId(), plan.actionsJson(),
+                plan.riskLevel(), plan.confidenceScore(), plan.tier()
+        );
+
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.of(approval));
+
+        boolean result = gate.reject(plan.planId(), "user-1", "Too risky");
+
+        assertTrue(result);
+        verify(repository).save(approval);
+        assertEquals("Too risky", approval.getRejectionReason());
+    }
+
+    @Test
+    void testReject_NotFound() {
+        when(repository.findByPlanId(plan.planId())).thenReturn(Optional.empty());
+
+        boolean result = gate.reject(plan.planId(), "user-1", "Too risky");
+
+        assertFalse(result);
+        verify(repository, never()).save(any());
     }
 }
